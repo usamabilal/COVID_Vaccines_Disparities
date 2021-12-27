@@ -1,0 +1,11 @@
+model,ri,rs,pval
+rii: svi,logLik=77.8; df=7,logLik=81.5; df=9,0.038
+rii: svi1,logLik=89.4; df=7,logLik=93.8; df=9,0.016
+rii: svi2,logLik=80.5; df=7,logLik=94.5; df=9,<0.001
+rii: svi3,logLik=33.5; df=7,logLik=35.7; df=9,0.155
+rii: svi4,logLik=35.6; df=7,logLik=39.3; df=9,0.036
+sii: svi,logLik=-3242.5; df=7,logLik=-3238.9; df=9,0.046
+sii: svi1,logLik=-3246.9; df=7,logLik=-3244.1; df=9,0.097
+sii: svi2,logLik=-3270.6; df=7,logLik=-3254.2; df=9,<0.001
+sii: svi3,logLik=-3317.1; df=7,logLik=-3309.1; df=9,<0.001
+sii: svi4,logLik=-3312; df=7,logLik=-3303.5; df=9,<0.001

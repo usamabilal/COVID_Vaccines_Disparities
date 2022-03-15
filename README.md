@@ -4,7 +4,7 @@
 
 Files:
 
-* Data_Management.R: cleaning data compiled by www.covid-inequities.info] plus obtaining SVI at the ZCTA level
+* Data_Management.R: cleaning data compiled by www.covid-inequities.info plus obtaining SVI at the ZCTA level
 * Analysis.R: all analysis and tables/figures
 
 

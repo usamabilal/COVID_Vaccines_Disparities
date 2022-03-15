@@ -17,17 +17,34 @@ library(lme4)
 library(mixedup)
 select<-dplyr::select
 load("Data/Clean_Data.Rdata")
-# theme for figures
+# old theme for figures
+# fontsize<-16
+# theme_vax<-theme_bw() +
+#   theme(axis.text=element_text(color="black", size=fontsize),
+#         axis.title=element_text(face="bold", color="black", size=fontsize),
+#         plot.title=element_text(face="bold", color="black", size=fontsize),
+#         strip.text =element_text(face="bold", color="black", size=fontsize),
+#         strip.background = element_blank(),
+#         legend.position = "bottom",
+#         legend.text=element_text(size=fontsize),
+#         legend.title=element_text(size=fontsize, face="bold"))
+# theme for figures, modified based on AJE weirdly specific requirements
 fontsize<-16
 theme_vax<-theme_bw() +
   theme(axis.text=element_text(color="black", size=fontsize),
-        axis.title=element_text(face="bold", color="black", size=fontsize),
-        plot.title=element_text(face="bold", color="black", size=fontsize),
-        strip.text =element_text(face="bold", color="black", size=fontsize),
+        axis.title=element_text(color="black", size=fontsize),
+        plot.title=element_text(color="black", size=fontsize),
+        strip.text =element_text(color="black", size=fontsize, hjust=-0.1),
+        panel.grid=element_blank(), 
+        plot.background = element_blank(),
+        panel.background = element_blank(),
+        axis.line.y = element_line(),
+        axis.line.x=element_line(), 
+        panel.border=element_blank(),
         strip.background = element_blank(),
         legend.position = "bottom",
         legend.text=element_text(size=fontsize),
-        legend.title=element_text(size=fontsize, face="bold"))
+        legend.title=element_text(size=fontsize))
 # basic stats
 summary(all_vax)
 nrow(all_vax)
@@ -101,20 +118,59 @@ all_vax<-all_vax %>%
 
 # SECOND: graphical descriptives
 # scatter plot (note 3 are excluded from figure)
-figure1<-ggplot(all_vax, aes(x=svi_std, y=fully_vaccinated_prop)) +
-  # geom_text(data=all_vax %>% filter(!duplicated(city_f)),
-  #           aes(label=paste0("rho=", round(cor, digits=3))), x=1, y=.1)+
-  geom_point(pch=21, color="black", fill="gray", aes(size=(total_pop)))+
-  stat_smooth(method="loess", se=F, color="black", aes(weight=total_pop))+
-  scale_y_continuous(limits=c(0, NA), labels=scales::percent_format(accuracy = 1))+
-  scale_x_continuous(limits=c(NA, NA))+
-  scale_size_continuous( range=c(1, 3))+
-  facet_wrap(~city_f, ncol=4)+
-  guides(size=F)+
-  coord_cartesian(ylim=c(0, 1))+
-  labs(x="Social Vulnerability Index",
-       y="Proportion Fully Vaccinated (%)")+
-  theme_vax
+
+# Note: this figure used to be much cleaner, AJE requirements required re-code
+# city_labels<-LETTERS[1:16]
+# names(city_labels)<-all_vax %>% select(city_f) %>% filter(!duplicated(city_f)) %>% pull(city_f)
+# figure1<-ggplot(all_vax, aes(x=svi_std, y=fully_vaccinated_prop*100)) +
+#   # geom_text(data=all_vax %>% filter(!duplicated(city_f)),
+#   #           aes(label=paste0("rho=", round(cor, digits=3))), x=1, y=.1)+
+#   geom_point(pch=21, color="black", fill="gray", aes(size=(total_pop)))+
+#   stat_smooth(method="loess", se=F, color="black", aes(weight=total_pop))+
+#   scale_y_continuous(limits=c(0, NA))+
+#   scale_x_continuous(limits=c(NA, NA),
+#                      breaks=c(0, .25, .5, .75, 1),
+#                      labels=c("0", "0.25", "0.50", "0.75", "1"))+
+#   scale_size_continuous( range=c(1, 3))+
+#   facet_wrap(~city_f, ncol=4, scales="free",
+#              labeller = labeller(city_f=city_labels))+
+#   guides(size=F)+
+#   coord_cartesian(ylim=c(0, 100), xlim=c(0, 1))+
+#   labs(x="Social Vulnerability Index",
+#        y="Proportion Fully Vaccinated, %")+
+#   theme_vax
+
+#
+all_vax<-full_join(all_vax, all_vax %>% 
+                     select(city_f) %>% 
+                     filter(!duplicated(city_f)) %>% 
+                     mutate(letter=LETTERS[1:16],
+                            letter=paste0(letter, ")")))
+figure1<-all_vax %>% group_by(letter) %>% 
+  group_map(~{
+    ggplot(.x, aes(x=svi_std, y=fully_vaccinated_prop*100)) +
+      geom_point(pch=21, color="black", fill="gray", aes(size=(total_pop)))+
+      stat_smooth(method="loess", se=F, color="black", aes(weight=total_pop))+
+      scale_y_continuous(limits=c(0, NA))+
+      scale_x_continuous(limits=c(NA, NA),
+                         breaks=c(0, .25, .5, .75, 1),
+                         labels=c("0", "0.25", "0.50", "0.75", "1"))+
+      scale_size_continuous( range=c(1, 3))+
+      guides(size=F)+
+      coord_cartesian(ylim=c(0, 100), xlim=c(0, 1))+
+      labs(x="Social Vulnerability Index",
+           y="Fully Vaccinated, %",
+           tag=.y$letter)+
+      theme_vax
+  })
+figure1<-arrangeGrob(grobs=figure1, ncol=4)
+# print out for AJE legend
+all_vax %>% filter(!duplicated(city_f)) %>% 
+  mutate(text=paste0(letter, " ", city_f)) %>% 
+  pull(text) %>% 
+  paste(collapse="; ") %>% 
+  cat
+
 # scatter plot unstd
 af1<-ggplot(all_vax, aes(x=svi, y=fully_vaccinated_prop)) +
   # geom_text(data=all_vax %>% filter(!duplicated(city_f)),
@@ -146,32 +202,66 @@ figure2_data<-all_vax %>%
                                         "West", "South")))
 figure2_data<-figure2_data %>% 
   full_join(figure2_data %>% filter(!duplicated(city_f)) %>% group_by(region) %>% mutate(city_id=factor(row_number()))%>% select(city_f           , region, city_id))
+# note; had to re-do figure 2 (see below) to be able to fit AJE requirements
+# figure2<-ggplot(figure2_data, aes(x=term, y=rate, group=city_f)) +
+#   geom_line(aes(color=city_id))+
+#   geom_point(pch=21, color="black", aes(fill=city_id), size=5) +
+#   # geom_text(data=table2_figure %>% filter(term=="High"),aes(label=city_f, color=city_f),
+#   #           position=position_nudge(x=0.1, y=0),hjust=0)+
+#   # geom_text(data=table2_figure %>% filter(term=="High", 
+#   #                                         !grepl("Dxallas|Foxrt", city_f)),
+#   #                 aes(label=str_wrap(city_f_nostate, 16), color=city_f),size=5,
+#   #                 position=position_nudge(x=0.1, y=0),hjust=0)+
+#   geom_text_repel(data=figure2_data %>% filter(term=="High",
+#                                                !grepl("Dxallas|Fxort", city_f)),
+#                   aes(label=city_f_nostate, color=city_id),size=5,
+#                   direction="y",nudge_x=0.2, min.segment.length = 10, hjust=0)+
+#   guides(fill=F, color=F)+
+#   scale_y_continuous(limits=c(.20, 1), 
+#                      breaks=seq(.20, 1, by=0.2),
+#                      labels=scales::percent_format(accuracy = 1))+
+#   scale_x_discrete(labels = wrap_format(6),
+#                    expand=expansion(mult=c(0.1, 0.3)))+
+#   scale_color_brewer(type="qual", palette=2)+
+#   scale_fill_brewer(type="qual", palette=2)+
+#   labs(x="Social Vulnerability Index (City-Specific Quintiles)",
+#        y="% Fully Vaccinated")+
+#   facet_wrap(~region, ncol=2)+
+#   theme_vax
+# AJE version
+figure2_data<-full_join(figure2_data, 
+                        figure2_data  %>% 
+                          ungroup() %>% 
+                          arrange(region) %>% 
+                          filter(!duplicated(region)) %>% 
+                          mutate(letter=LETTERS[1:4]) %>% 
+                          select(region, letter))
+figure2<-figure2_data %>% group_by(letter) %>% 
+  group_map(~{
+    #.x<-figure2_data %>% filter(letter=="C");.y<-data.frame(letter="C")
+    ggplot(.x, aes(x=term, y=rate*100, group=city_f)) +
+      geom_line(aes(linetype=city_f))+
+      geom_point(pch=21, color="black", fill="gray", size=2) +
+      guides(fill=F, color=F,
+             linetype=guide_legend(ncol=1))+
+      scale_y_continuous(limits=c(20, 100), 
+                         breaks=seq(20, 100, by=20))+
+      scale_x_discrete(labels = wrap_format(6))+
+      scale_color_brewer(type="qual", palette=2)+
+      scale_fill_brewer(type="qual", palette=2)+
+      labs(x="Social Vulnerability Index",
+           y="Fully Vaccinated, %",
+           linetype=expression(underline("City")),
+           tag=.y$letter)+
+      theme_vax +
+      theme(legend.position=c(0.20, 0.25),
+            legend.background=element_blank(),
+            legend.title=element_text(size=fontsize),
+            legend.box.background = element_blank(),
+            legend.key.width = unit(2, "cm"))
+  })
+figure2<-grid.arrange(grobs=figure2, ncol=2)
 
-figure2<-ggplot(figure2_data, aes(x=term, y=rate, group=city_f)) +
-  geom_line(aes(color=city_id))+
-  geom_point(pch=21, color="black", aes(fill=city_id), size=5) +
-  # geom_text(data=table2_figure %>% filter(term=="High"),aes(label=city_f, color=city_f),
-  #           position=position_nudge(x=0.1, y=0),hjust=0)+
-  # geom_text(data=table2_figure %>% filter(term=="High", 
-  #                                         !grepl("Dxallas|Foxrt", city_f)),
-  #                 aes(label=str_wrap(city_f_nostate, 16), color=city_f),size=5,
-  #                 position=position_nudge(x=0.1, y=0),hjust=0)+
-  geom_text_repel(data=figure2_data %>% filter(term=="High",
-                                               !grepl("Dxallas|Fxort", city_f)),
-                  aes(label=city_f_nostate, color=city_id),size=5,
-                  direction="y",nudge_x=0.2, min.segment.length = 10, hjust=0)+
-  guides(fill=F, color=F)+
-  scale_y_continuous(limits=c(.20, 1), 
-                     breaks=seq(.20, 1, by=0.2),
-                     labels=scales::percent_format(accuracy = 1))+
-  scale_x_discrete(labels = wrap_format(6),
-                   expand=expansion(mult=c(0.1, 0.3)))+
-  scale_color_brewer(type="qual", palette=2)+
-  scale_fill_brewer(type="qual", palette=2)+
-  labs(x="Social Vulnerability Index (City-Specific Quintiles)",
-       y="% Fully Vaccinated")+
-  facet_wrap(~region, ncol=2)+
-  theme_vax
 # figure 2b <- unstd 
 figure2_data<-all_vax %>% 
   group_by(region, city_f, svi_quint_f) %>% 
@@ -290,13 +380,13 @@ rii_sii<-city_slopes_models %>%
   }) %>% 
   mutate(city_state=factor(city_state))
 table2_riisii<-rii_sii %>% 
-  mutate(sii=paste0(round(sii, digits=2), " (", 
-                    round(sii_lci, digits=2), ";",
-                    round(sii_uci, digits=2), ")")) %>% 
-  mutate(rii=paste0(round(rii, digits=2), " (", 
-                    round(rii_lci, digits=2), ";",
-                    round(rii_uci, digits=2), ")")) %>% 
-  select(city_state, rii, sii) 
+  mutate(sii=paste0(round(sii, digits=2)),
+         sii_ci=paste0(round(sii_lci, digits=2), ",",
+                    round(sii_uci, digits=2))) %>% 
+  mutate(rii=paste0(round(rii, digits=2)),
+         rii_ci=paste0(round(rii_lci, digits=2), ",",
+                       round(rii_uci, digits=2))) %>% 
+  select(city_state, rii, rii_ci, sii, sii_ci) 
 # missing total row: get from MLM models!
 
 # sii vs rii
@@ -414,30 +504,31 @@ model_rii_region_int<-lmer(log(fully_vaccinated_prop)~svi_std*region+pct_age1844
 model_sii_region_int<-lmer((fully_vaccinated_prop)*100~svi_std*region+pct_age1844+pct_age4564+pct_age65plus+(svi_std|city_state), data=all_vax, REML=T)
 
 # FOURTH (v2): wrap up table 2 by adding a row for total
+total_row<-full_join(model_rii %>%
+                       tidy %>% 
+                       filter(term=="svi_std") %>% 
+                       mutate(rii=exp(estimate),
+                              rii_lci=exp(estimate-1.96*std.error),
+                              rii_uci=exp(estimate+1.96*std.error)) %>% 
+                       mutate(rii=paste0(round(rii, digits=2)),
+                              rii_ci=paste0(round(rii_lci, digits=2), ",",
+                                         round(rii_uci, digits=2))) %>% 
+                       mutate(city_state="Total**") %>% 
+                       select(city_state, rii, rii_ci),
+                     model_sii %>%
+                       tidy %>% 
+                       filter(term=="svi_std") %>% 
+                       mutate(sii=(estimate),
+                              sii_lci=(estimate-1.96*std.error),
+                              sii_uci=(estimate+1.96*std.error)) %>% 
+                       mutate(sii=paste0(round(sii, digits=2)),
+                              sii_ci=paste0(round(sii_lci, digits=2), ",",
+                                            round(sii_uci, digits=2))) %>% 
+                       mutate(city_state="Total**") %>% 
+                       select(city_state, sii, sii_ci))
 table2_riisii<-table2_riisii %>% 
   # add total row = fixed effect
-  bind_rows(full_join(model_rii %>%
-                        tidy %>% 
-                        filter(term=="svi_std") %>% 
-                        mutate(rii=exp(estimate),
-                               rii_lci=exp(estimate-1.96*std.error),
-                               rii_uci=exp(estimate+1.96*std.error)) %>% 
-                        mutate(rii=paste0(round(rii, digits=2), " (", 
-                                          round(rii_lci, digits=2), ";",
-                                          round(rii_uci, digits=2), ")")) %>% 
-                        mutate(city_state="Total**") %>% 
-                        select(city_state, rii),
-                      model_sii %>%
-                        tidy %>% 
-                        filter(term=="svi_std") %>% 
-                        mutate(sii=(estimate),
-                               sii_lci=(estimate-1.96*std.error),
-                               sii_uci=(estimate+1.96*std.error)) %>% 
-                        mutate(sii=paste0(round(sii, digits=2), " (", 
-                                          round(sii_lci, digits=2), ";",
-                                          round(sii_uci, digits=2), ")")) %>% 
-                        mutate(city_state="Total**") %>% 
-                        select(city_state, sii)))
+  bind_rows(total_row)
 
 table2<-full_join(table2_total, table2_riisii) %>% 
   arrange(state, city) %>% 
@@ -608,16 +699,25 @@ rii_sii_components<-city_slopes_components_models %>%
   }) %>% 
   mutate(city_state=factor(city_state))
 table3_riisii<-rii_sii_components %>% 
-  mutate(sii=paste0(round(sii, digits=2), "\n(", 
-                    round(sii_lci, digits=2), ";",
-                    round(sii_uci, digits=2), ")")) %>% 
-  mutate(rii=paste0(round(rii, digits=2), "\n(", 
-                    round(rii_lci, digits=2), ";",
-                    round(rii_uci, digits=2), ")")) %>% 
-  select(city_state, rii, sii) %>% 
-  pivot_wider(id_cols=city_state, names_from=component, values_from = rii:sii) %>% 
+  mutate(sii=paste0(round(sii, digits=2)),
+         sii_ci=paste0(round(sii_lci, digits=2), ",",
+                    round(sii_uci, digits=2))) %>% 
+  mutate(rii=paste0(round(rii, digits=2)),
+         rii_ci=paste0(round(rii_lci, digits=2), ",",
+                       round(rii_uci, digits=2))) %>% 
+  select(city_state, rii, rii_ci, sii, sii_ci) %>% 
+  pivot_wider(id_cols=city_state, names_from=component, values_from = rii:sii_ci) %>% 
   mutate(city_state=factor(city_state, levels=c((all_vax %>% filter(!duplicated(city)) %>% arrange(state, city) %>% pull(city_state)), "Total**"))) %>% 
-  arrange(city_state)
+  arrange(city_state) %>% 
+  select(city_state, 
+         rii_svi1_std, rii_ci_svi1_std,
+         rii_svi2_std, rii_ci_svi2_std,
+         rii_svi3_std, rii_ci_svi3_std,
+         rii_svi4_std, rii_ci_svi4_std,
+         sii_svi1_std, sii_ci_svi1_std,
+         sii_svi2_std, sii_ci_svi2_std,
+         sii_svi3_std, sii_ci_svi3_std,
+         sii_svi4_std, sii_ci_svi4_std)
 # missing total row: get from MLM models!
 
 # then MLM equivalent for appendix
@@ -747,40 +847,38 @@ at3<-map_dfr(1:nrow(model_list), function(i){
 })
 
 # sixth(v2): wrap up talbe 3 with mlm coef
+total_row<-map_dfr(mlm_domains, function(temp){
+  #temp<-mlm_domains[[1]]
+  model_rii<-temp$model_rii
+  model_sii<-temp$model_sii
+  component<-temp$component
+  bind_rows(full_join(model_rii %>%
+                        tidy %>% 
+                        filter(term=="value") %>% 
+                        mutate(rii=exp(estimate),
+                               rii_lci=exp(estimate-1.96*std.error),
+                               rii_uci=exp(estimate+1.96*std.error)) %>% 
+                        mutate(rii=paste0(round(rii, digits=2)),
+                               rii_ci=paste0(round(rii_lci, digits=2), ",",
+                                             round(rii_uci, digits=2))) %>% 
+                        mutate(city_state="Total**") %>% 
+                        select(city_state, rii, rii_ci),
+                      model_sii %>%
+                        tidy %>% 
+                        filter(term=="value") %>% 
+                        mutate(sii=(estimate),
+                               sii_lci=(estimate-1.96*std.error),
+                               sii_uci=(estimate+1.96*std.error)) %>% 
+                        mutate(sii=paste0(round(sii, digits=2)),
+                               sii_ci=paste0(round(sii_lci, digits=2), ",",
+                                             round(sii_uci, digits=2))) %>% 
+                        mutate(city_state="Total**") %>% 
+                        select(city_state, sii, sii_ci))) %>% 
+    mutate(component=component)
+}) %>% 
+  pivot_wider(id_cols=city_state, names_from=component, values_from=rii:sii_ci)
 table3<-table3_riisii %>% 
-  bind_rows(
-    map_dfr(mlm_domains, function(temp){
-      #temp<-mlm_domains[[1]]
-      model_rii<-temp$model_rii
-      model_sii<-temp$model_sii
-      component<-temp$component
-      bind_rows(full_join(model_rii %>%
-                            tidy %>% 
-                            filter(term=="value") %>% 
-                            mutate(rii=exp(estimate),
-                                   rii_lci=exp(estimate-1.96*std.error),
-                                   rii_uci=exp(estimate+1.96*std.error)) %>% 
-                            mutate(rii=paste0(round(rii, digits=2), "\n(", 
-                                              round(rii_lci, digits=2), ";",
-                                              round(rii_uci, digits=2), ")")) %>% 
-                            mutate(city_state="Total**") %>% 
-                            select(city_state, rii),
-                          model_sii %>%
-                            tidy %>% 
-                            filter(term=="value") %>% 
-                            mutate(sii=(estimate),
-                                   sii_lci=(estimate-1.96*std.error),
-                                   sii_uci=(estimate+1.96*std.error)) %>% 
-                            mutate(sii=paste0(round(sii, digits=2), "\n(", 
-                                              round(sii_lci, digits=2), ";",
-                                              round(sii_uci, digits=2), ")")) %>% 
-                            mutate(city_state="Total**") %>% 
-                            select(city_state, sii))) %>% 
-        mutate(component=component)
-    }) %>% 
-      pivot_wider(id_cols=city_state, names_from=component, values_from=rii:sii)
-  )
-
+  bind_rows(total_row)
 
 # save results
 write_csv(table1 , file="results/table1.csv")
@@ -789,8 +887,8 @@ write_csv(table3, file="results/Table3.csv")
 write_csv(at2, file="results/AppendixTable2.csv")
 write_csv(at3, file="results/AppendixTable3.csv")
 write_csv(at4, file="results/AppendixTable4.csv")
-ggsave("results/figure1.pdf", figure1, width=12, height=10)
-ggsave("results/figure2.pdf", figure2, width=14, height=7.5)
+ggsave("results/AJE-01092-2021 Bilal Figure 1.pdf", figure1, width=9, height=7, scale=2)
+ggsave("results/AJE-01092-2021 Bilal Figure 2.pdf", figure2, width=9, height=4.83, scale=2)
 ggsave("results/AppendixFigure1.pdf", af1, width=12, height=10)
 ggsave("results/AppendixFigure2.pdf", af2, width=14, height=7.5)
 ggsave("results/AppendixFigure3.pdf", af3, width=10, height=7.5)
